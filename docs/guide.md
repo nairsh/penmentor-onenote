@@ -4,8 +4,8 @@ Press a key while you work through maths by hand, and an AI model (Claude, Gemin
 marks work with coloured pens: rings round the mistake, ticks on the right lines, a faint ghost of the next step,
 arrows from cause to effect. Words are a last resort.
 
-Built for [xournal++](https://xournalpp.github.io/) and a pen tablet on Linux (X11, works best with i3), for calculus,
-but it reads whatever maths is on screen.
+This fork runs on Windows and is made for OneNote (desktop app) with a pen: a touchscreen laptop, a pen tablet, or an iPad
+used as a second screen. It reads whatever maths is on screen. Forked from [AbdullahAlhariri/penmentor](https://github.com/AbdullahAlhariri/penmentor), the xournal++/Linux original.
 
 ## What it can do
 
@@ -34,7 +34,7 @@ buttons, bottom right (tap with the pen; pressing the penmentor key again opens 
 | replay | the marks again |
 | close · esc | **Esc** stops penmentor wherever you are: in a menu, while the model thinks (it stops too), or with the marks up |
 
-A tablet pad button (`penmentor --ask check`) while the marks are up checks the work as it is now.
+A pen button or hotkey (`penmentor --ask check`) while the marks are up checks the work as it is now.
 
 Show me starts on the frozen screen: drag boxes round what to animate (right-click takes one back), then tap the badge
 or press Enter. The window opens straight away (a loading animation runs while the model thinks) and stays until you
@@ -49,7 +49,7 @@ Hover or tap a mark for its one-line "why". Questions build on each other (one c
 
 ## How it works, and what leaves your computer
 
-A screenshot of every monitor, plus (with the xournal++ plugin) the whole current page of your notes, goes to the
+A screenshot of every monitor goes to the
 model you picked in *Settings*, through its company's command-line agent, so it runs on a subscription you already
 have. Models are written `harness:model`; the prefix says which agent runs it:
 
@@ -65,52 +65,53 @@ have. Models are written `harness:model`; the prefix says which agent runs it:
 The model answers in JSON (what it read, a verdict, marks with boxes); penmentor snaps the boxes onto your ink and draws them
 on top of your live screen. Nothing else is sent and nothing runs in the background between questions.
 
-## Install
+## Install (Windows 10/11)
 
-Linux with X11. On Arch:
+1. Install [Python 3.10+](https://www.python.org/downloads/windows/) (tick "Add to PATH").
+2. Install one agent and log in once by running it: [Claude Code](https://claude.com/claude-code) (use its native
+   Windows install, not an npm `.cmd` shim: the system prompt is passed as an argument), `agy`, or [Codex](https://github.com/openai/codex).
+3. In PowerShell:
 
-```sh
-sudo pacman -S python-pyqt6 python-numpy python-scipy python-pillow python-matplotlib rofi slop xdotool libnotify
-sudo pacman -S texlive-latex texlive-latexextra texlive-fontsextra   # optional: real LaTeX and the CMU fonts
+```powershell
+git clone https://github.com/nairsh/penmentor-onenote $HOME\penmentor-onenote
+cd $HOME\penmentor-onenote
+pip install .
+penmentor --selftest
 ```
 
-Install one of the agents above (`claude`, `agy` or `codex`) and log in once by running it. Then:
+4. Optional, for real LaTeX instead of matplotlib's imitation: [MiKTeX](https://miktex.org/) (needs `latex` and `dvipng` on PATH).
+5. **A key:** install [AutoHotkey v2](https://www.autohotkey.com/) and double-click [contrib/penmentor.ahk](../contrib/penmentor.ahk)
+   (F9 asks, F10 checks new work; edit the paths and keys inside). `pythonw` avoids a console window. If your pen has a
+   button, Windows *Settings → Bluetooth & devices → Pen & Windows Ink → Pen shortcuts* can open the script's shortcut or
+   an app instead.
 
-```sh
-git clone <this repo> ~/src/penmentor
-~/src/penmentor/bin/penmentor --selftest
+Use OneNote's desktop app (not the web) with its page open on a monitor. Start `penmentor`, pick a question; the marks
+stay over OneNote until Esc.
+
+**iPad:** penmentor cannot run on iPadOS. Mirror the laptop to the iPad with a second-display app (Duet Display, Spacedesk,
+Luna Display…) and write with the Pencil on the mirrored OneNote: the marks show there too. Whether Pencil pressure
+and taps pass through depends on that app.
+
+**Show me** needs manimgl (3Blue1Brown's manim) and its OpenGL window, untested on Windows in this fork. Put it in its own environment, where penmentor looks for it:
+
+```powershell
+python -m venv --system-site-packages $env:LOCALAPPDATA\penmentor\data\manim
+& $env:LOCALAPPDATA\penmentor\data\manim\Scripts\pip install manimgl audioop-lts
 ```
 
-Bind a key: see [contrib/i3.conf](../contrib/i3.conf) (or `pip install .` and bind `penmentor`).
+(or `pip install ".[show]"` into the Python that runs penmentor).
 
-**xournal++ plugin** (so the model also sees the parts of the page that are scrolled away, and your unsaved strokes):
-
-```sh
-ln -s ~/src/penmentor/xournalpp-plugin/penmentor ~/.config/xournalpp/plugins/penmentor
-```
-
-and restart xournal++. It adds *Plugin → penmentor: share the current page* on Ctrl+Alt+Shift+F12, which penmentor presses for you.
-
-**Show me** needs manimgl (3Blue1Brown's manim) and its OpenGL window. Put it in its own environment, where penmentor
-looks for it:
-
-```sh
-uv venv --system-site-packages ~/.local/share/penmentor/manim
-uv pip install -p ~/.local/share/penmentor/manim/bin/python manimgl audioop-lts
-```
-
-(or `pip install '.[show]'` into the Python that runs penmentor).
-
-**Tablet buttons:** `penmentor --ask check` skips the menu; [contrib/wacom.sh](../contrib/wacom.sh) maps two pad buttons to it.
+**Known limits:** one display scale for all monitors works best (mixed-DPI setups can shift marks); the model sees
+the screen, not the whole OneNote page, so keep the problem visible; menus are small tkinter windows, not rofi.
 
 ## Development
 
 ```sh
-bin/penmentor --selftest                       # page analysis, text, formulas, plots, drill logic; no model, no screen
-bin/penmentor --test shot.png check            # ask your model about a saved screenshot: shot.penmentor.json and shot.penmentor.png
-bin/penmentor --render shot.png shot.penmentor.json  # redraw a saved answer without the model (tune the visuals)
-PYTHONPATH=src ~/.local/share/penmentor/manim/bin/python -m penmentor.plot --png spec.json out.png   # one animation's last frame
-~/.local/share/penmentor/manim/bin/python docs/assets.py   # the README's banner
+python bin/penmentor --selftest                       # page analysis, text, formulas, plots, drill logic; no model, no screen
+python bin/penmentor --test shot.png check            # ask your model about a saved screenshot: shot.penmentor.json and shot.penmentor.png
+python bin/penmentor --render shot.png shot.penmentor.json  # redraw a saved answer without the model (tune the visuals)
+$env:PYTHONPATH='src'; & $env:LOCALAPPDATA\penmentor\data\manim\Scripts\python -m penmentor.plot --png spec.json out.png   # one animation's last frame
+& $env:LOCALAPPDATA\\penmentor\\data\\manim\\Scripts\\python docs/assets.py   # the README's banner
 ```
 
 | Module | |
@@ -118,7 +119,7 @@ PYTHONPATH=src ~/.local/share/penmentor/manim/bin/python -m penmentor.plot --png
 | `cli.py` | entry point: capture, menu, settings |
 | `prompts.py` | everything the model is told, and the JSON schema it answers in |
 | `harness.py` | the `claude`, `agy` and `codex` calls, sessions, token and usage stats |
-| `desktop.py`, `xournal.py` | screenshots, monitors, i3 windows, rofi; the whole-page export |
+| `desktop.py`, `picker.py`, `xournal.py` | screenshots, monitors, windows, the pointer (Win32 through ctypes); the tkinter menu and box selector; a stub where xournal++'s page export was |
 | `page.py` | where the ink is: snapping boxes onto strokes, finding empty space |
 | `overlay.py`, `draw.py`, `style.py` | the marks over your live screen (a shaped window), the modes |
 | `typeset.py` | LaTeX (or mathtext) into images |

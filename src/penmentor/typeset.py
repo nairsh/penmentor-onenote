@@ -128,11 +128,12 @@ def typeset(keys):
     try:
         with tempfile.TemporaryDirectory() as d:
             Path(d, 'x.tex').write_text(PREAMBLE + '\n' + '\n'.join(body) + '\n\\end{document}\n')
-            subprocess.run(['latex', '-interaction=nonstopmode', '-no-shell-escape', 'x.tex'], cwd=d, capture_output=True, timeout=30)
+            subprocess.run(['latex', '-interaction=nonstopmode', '-no-shell-escape', 'x.tex'], cwd=d, capture_output=True, timeout=30,
+                           creationflags=0x08000000)
             # 115 dpi matches the handwriting. dvipng anti-aliases with only 15 alpha levels (jagged edges), so render 3x
             # and scale down smoothly; gamma thickens Computer Modern's thin strokes a little so they read on screen
             subprocess.run(['dvipng', '-T', 'tight', '-D', str(115 * SS), '-bg', 'Transparent', '--gamma', GAMMA, '-q', '-o', 'p%d.png', 'x.dvi'],
-                           cwd=d, capture_output=True, timeout=30)
+                           cwd=d, capture_output=True, timeout=30, creationflags=0x08000000)
             log = Path(d, 'x.log').read_text(errors='replace')
             bad = {int(n) - first for n in re.findall(r'^!.*?^l\.(\d+)', log, re.M | re.S)}
             aligned = len(list(Path(d).glob('p*.png'))) == len(todo)
@@ -231,7 +232,8 @@ def shrink(img, maxw):
 @functools.cache
 def font_paths():
     """CMU Serif ships with TeX Live (cm-unicode), so nothing needs a system-wide install."""
-    return subprocess.run(['kpsewhich', 'cmunrm.otf'], capture_output=True, text=True).stdout.split() if shutil.which('kpsewhich') else []
+    return subprocess.run(['kpsewhich', 'cmunrm.otf'], capture_output=True, text=True,
+                          creationflags=0x08000000).stdout.split() if shutil.which('kpsewhich') else []
 
 
 @functools.cache

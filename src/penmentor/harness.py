@@ -21,7 +21,8 @@ from .config import CACHE, CONF, SESSION
 from .prompts import SCHEMA, SYSTEM
 
 HARNESSES = {'claude': 'Claude Code', 'agy': 'Antigravity', 'codex': 'Codex'}
-BIN = {h: shutil.which(h) or str(Path.home() / '.local/bin' / h) for h in HARNESSES}  # i3's PATH may lack ~/.local/bin
+BIN = {h: shutil.which(h) or str(Path.home() / '.local' / 'bin' / f'{h}.exe') for h in HARNESSES}
+NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW: no console flashing up when started from pythonw
 SEND_EDGE = 1568  # long edge of the images the model sees; its boxes come back in that space
 TURN = CACHE / 'turn'  # the screenshots as files, for the harnesses that take images as files
 VIEW_ONLY = ('Open these image files with your file viewer, in this order, and use only the file viewer: run no commands '
@@ -73,7 +74,8 @@ def stop():
 
 
 def run(cmd, stdin, cwd):
-    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=cwd) as p:
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8',
+                          cwd=cwd, creationflags=NO_WINDOW) as p:
         RUNNING.add(p)
         try:
             return p.communicate(stdin, timeout=300)
@@ -212,7 +214,7 @@ RUN = {'claude': claude, 'agy': agy, 'codex': codex}
 
 
 def ask(shots, text, main=0, new_shot=True, keep=True, page=None):
-    """shots: [(png, (w, h))] per monitor, left to right; main: the focused one; page: (png, label) of the whole xournal page.
+    """shots: [(png, (w, h))] per monitor, left to right; main: the focused one; page: (png, label) of the whole page, if any.
     new_shot=False: a follow-up on the screenshots the model already has. keep=False: no shared context (offline tests)."""
     h, model = pick()
     s = session() if keep else None
@@ -224,7 +226,7 @@ def ask(shots, text, main=0, new_shot=True, keep=True, page=None):
         for i, shot in enumerate(shots):
             parts += [('text', f'Screen {i}' + (' (focused)' if i == main else '') + f': {shot[1][0]}x{shot[1][1]} px'), ('image', shot)]
         if page:
-            parts += [('text', f'The whole {page[1]} of the xournal notes, for context only (no marks on it):'),
+            parts += [('text', f'The whole {page[1]} of the notes, for context only (no marks on it):'),
                       ('image', prepare(Image.open(io.BytesIO(page[0])).convert('RGB')))]
         parts.append(('text', 'Give every box in its own screen\'s pixels.\n\n' + text))
     CACHE.mkdir(parents=True, exist_ok=True)

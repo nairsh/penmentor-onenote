@@ -4,23 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "penmentor"
-version = "0.2.0"
-description = "A maths mentor at the tip of your pen: Claude marks your handwritten work with hints, not answers, and shows the idea with manim."
+version = "0.2.0+onenote"
+description = "A maths mentor at the tip of your pen, for OneNote on Windows: Claude marks your handwritten work with hints, not answers, and shows the idea with manim."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 dependencies = ["numpy", "scipy", "pillow", "PyQt6", "matplotlib"]
-keywords = ["xournal", "handwriting", "calculus", "tutor", "claude", "x11", "i3"]
+keywords = ["onenote", "windows", "handwriting", "calculus", "tutor", "claude"]
 classifiers = [
-    "Environment :: X11 Applications :: Qt",
+    "Environment :: Win32 (MS Windows)",
     "Intended Audience :: Education",
-    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
 [project.urls]
-Homepage = "https://github.com/AbdullahAlhariri/penmentor"
-Issues = "https://github.com/AbdullahAlhariri/penmentor/issues"
+Homepage = "https://github.com/nairsh/penmentor-onenote"
+Issues = "https://github.com/AbdullahAlhariri/penmentor-onenote/issues"
 
 [project.optional-dependencies]
 show = ["manimgl", "audioop-lts; python_version >= '3.13'"]  # Show me: 3Blue1Brown's manim (pydub needs audioop on 3.13+)

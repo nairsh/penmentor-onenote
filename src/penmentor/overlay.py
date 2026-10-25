@@ -3,7 +3,6 @@ import json
 import math
 import re
 import os
-import signal
 import threading
 import time
 
@@ -15,6 +14,8 @@ from PyQt6.QtWidgets import QApplication, QWidget
 from . import show, xournal
 from .harness import ask, pick, prepare
 from .config import CACHE, CONF, save, set_state
+
+POKE = CACHE / 'poke'  # a second penmentor writes here to reach the one whose marks are up
 from .desktop import Oops, activate, active_window, capture, pointer, rofi
 from .draw import arrowhead, curve, edge, line_pts, panel, pen, qrect, ring, ring_rect, spin, tup
 from .page import Page
@@ -51,12 +52,12 @@ def save_last(ov, result):
 
 
 class Pill(QWidget):
-    """The badge at the top: 'Thinking' while Claude works, or a button. Never takes the focus from xournal.
-    Without a compositor X can't make its corners transparent, so it paints the screenshot behind its rounded ends."""
+    """The badge at the top: 'Thinking' while Claude works, or a button. Never takes the focus from OneNote.
+    It paints the screenshot behind its rounded ends rather than relying on a transparent window."""
 
     def __init__(self, backdrop, geom, text='Thinking', on_click=None, busy=True):
         super().__init__(None, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint |
-                         Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.X11BypassWindowManagerHint)
+                         Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.WindowDoesNotAcceptFocus)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.backdrop, self.text, self.busy, self.on_click = backdrop, text, busy, on_click or QApplication.quit
         self.err, self.t0 = False, time.monotonic()
@@ -98,8 +99,7 @@ class BoxPicker(QWidget):
     CYAN = QColor(0, 220, 255)
 
     def __init__(self, shot, geom, top, done):
-        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint |
-                         Qt.WindowType.X11BypassWindowManagerHint)
+        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.shot, self.done, self.boxes, self.drag, self.start = shot, done, [], None, QPointF()
         self.setGeometry(*geom)
         self.setCursor(Qt.CursorShape.CrossCursor)
@@ -168,7 +168,7 @@ class BoxPicker(QWidget):
 
 class Overlay(QWidget):
     """Claude's marks over your live screen, on every monitor it looked at. The window is shaped to the marks and
-    panels themselves (an X shape: no compositor needed), so everywhere else you see and use your apps: write, scroll,
+    panels themselves (a window shape), so everywhere else you see and use your apps: write, scroll,
     move windows, while the marks stay. Only Esc closes it; the bar's buttons (or the penmentor key again) do the rest.
     geom: where the shot sits on the desktop. screens (monitors) and wins (windows) are (x, y, w, h) in shot pixels;
     the panels go on screens[main], the focused monitor."""
@@ -178,15 +178,16 @@ class Overlay(QWidget):
 
     def __init__(self, shot, geom, region=None, screens=None, main=0, wins=None, mode='check', page=None):
         # region: your boxes [(x0, y0, x1, y1)] in shot pixels, drawn on what Claude sees
-        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint |
-                         Qt.WindowType.X11BypassWindowManagerHint)
+        super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool |
+                         Qt.WindowType.WindowDoesNotAcceptFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.geom, self.region, self.mode, self.page_req = tuple(geom), region, mode, page  # page: a xournal.PageRequest
         self.cache, self.locks = {}, {'pages': threading.Lock(), 'shots': threading.Lock()}
         self.load(shot, screens, main, wins)
         self.result, self.items, self.read_imgs, self.head, self.head_box, self.drill = None, [], None, None, None, None
         self.busy, self.error, self.hover, self.pinned = False, None, None, None
         self.want_plot = mode == 'show'
-        self.app_window = active_window()  # xournal, usually: it gets the focus back after the box picker had the keyboard
+        self.app_window = active_window()  # OneNote, usually: it gets the focus back after the box picker had the keyboard
         self.pill, self.t0, self.end, self.tip_pos, self.pin_pos = None, time.monotonic(), 0, QPointF(0, 0), QPointF(0, 0)
         self.setGeometry(*geom)
         self.setMouseTracking(True)
@@ -196,9 +197,9 @@ class Overlay(QWidget):
         self.tips, self.head_img, self.legend = {}, QImage(), None
         self.base, self.bar_items, self.bar_hover = QRegion(), [], None  # base: the shape of everything but tooltips
         self.tick = QTimer(self, interval=16, timeout=self.update)
-        QTimer(self, interval=33, timeout=self.track).start()  # hover from where the pointer is; and Python runs often
-        # enough that the signal below is heard
-        signal.signal(signal.SIGUSR1, lambda *a: QTimer.singleShot(0, self.poked))  # the penmentor key again
+        QTimer(self, interval=33, timeout=self.track).start()  # hover from where the pointer is
+        self.poke_seen = POKE.stat().st_mtime_ns if POKE.exists() else 0
+        QTimer(self, interval=150, timeout=self.check_poke).start()  # the penmentor key again
 
     def load(self, shot, screens, main, wins):
         """Freeze this frame. Its pages and Claude's copies are made from it lazily (the pages on a background thread)."""
@@ -589,7 +590,7 @@ class Overlay(QWidget):
     def draw_stats(self, p):
         r, lw, rows = self.stats()
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(18, 18, 22, 240))  # xournal's sidebar sits under it
+        p.setBrush(QColor(18, 18, 22, 240))  # the page list sits under it
         p.drawRoundedRect(r, 10, 10)
         p.setFont(ui_font(15))
         y = r.top() + 6
@@ -684,7 +685,7 @@ class Overlay(QWidget):
 
     def track(self):
         """Hover a mark, anywhere over it, for its why, as before the marks went live: the window is only their pixels,
-        so the pointer is usually over your app and we never hear of it. Ask X where it is instead (a hovering pen
+        so the pointer is usually over your app and we never hear of it. Ask Windows where it is instead (a hovering pen
         moves it too); while you draw (a button or the pen tip down) no tooltip pops up."""
         where = pointer()
         if where and self.isVisible():
@@ -754,6 +755,15 @@ class Overlay(QWidget):
         self.reshape()
         self.update()
 
+    def check_poke(self):
+        try:
+            t = POKE.stat().st_mtime_ns
+        except OSError:
+            return
+        if t != self.poke_seen:
+            self.poke_seen = t
+            self.poked()
+
     def poked(self):
         """The penmentor key (or a pad button) while the marks are up: the actions as a menu, or straight to that question."""
         try:
@@ -797,7 +807,7 @@ class Overlay(QWidget):
     def check_new(self, task):
         """Check what you wrote since: the marks step aside for the screenshot, then come back with the answer."""
         self.hide()
-        QTimer.singleShot(150, lambda: self.reshoot(task))  # let X repaint where the marks were
+        QTimer.singleShot(150, lambda: self.reshoot(task))  # let Windows repaint where the marks were
 
     def reshoot(self, task):
         try:

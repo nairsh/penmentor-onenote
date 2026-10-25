@@ -8,56 +8,36 @@ A maths mentor at the tip of your pen. Press a key while you work by hand: Claud
 <sub>Handwriting in xournal++ → one key → the slip is marked on the page → box the integral → an interactive manim animation.
 (<a href="docs/demo.mp4">video</a>; for a repeatable recording the pen is scripted and the model's answer is a fixed example.)</sub></p>
 
-## Why I use it
+## About this fork
 
-I study calculus with a pen tablet in xournal++. I kept screenshotting my work into Claude and reading long answers
-back, when what I wanted was a teacher looking over my shoulder: circle the mistake, tick what's right, nudge me toward
-the next step, and *show* me why. penmentor is that, one key away, on my own Claude subscription.
+**penmentor-onenote** is a Windows port of [AbdullahAlhariri/penmentor](https://github.com/AbdullahAlhariri/penmentor) (MIT) for
+**OneNote** and a pen. Same idea: hit a key while you write, and the model marks your work on screen with hints, not
+answers. What changed: screenshots, windows, hotkeys and menus use Win32 instead of X11/i3/rofi, and the xournal++ plugin is
+gone (the model sees the screen). It works with any app on screen, OneNote being the target.
 
-## How it helps you learn
+Not GoodNotes: that's iPadOS-only and can't be overlaid. Use OneNote on a Windows laptop, or mirror the laptop to an iPad
+with a second-display app and write with the Pencil there ([details](docs/guide.md#install-windows-1011)).
 
-- **Hints, not answers.** A ladder from a nudge to naming the technique to a faint ghost of the next line: you do
-  the thinking, which is what makes it stick.
-- **Feedback on your own work.** The first real mistake circled where you made it, correct lines ticked, later lines
-  that inherit the mistake underlined. The marks stay while you keep writing; Esc clears them.
-- **Practice that makes you recall.** Questions on your key steps (answer by typing or by writing), find-the-error
-  drills, "which technique fits?".
-- **See it.** Box what you want to understand and get an interactive animation made with 3Blue1Brown's own
-  [manim](https://github.com/3b1b/manim): drag the bounds, retype a value, watch Riemann sums close in.
-- **Whole page aware.** A small xournal++ plugin shares the page you are on, not just what fits on screen.
+> Status: ported and self-tested on GitHub's Windows runner; not yet used by hand on a pen and OneNote. Issues welcome.
 
 ## Works with Claude Code, Codex and Antigravity
-
-penmentor runs on the AI command-line agent you already use, on that subscription. Pick the model in *Settings*; its
-prefix says which agent answers:
 
 | Prefix | Agent | For example |
 |---|---|---|
 | `claude:` | [Claude Code](https://claude.com/claude-code) | `claude:opus`, `claude:sonnet`, `claude:haiku` |
 | `codex:` | [Codex](https://github.com/openai/codex) | `codex:gpt-5.6-terra` |
-| `agy:` | Antigravity CLI | `agy:gemini-4-argon-medium`, `agy:gemini-3.8-flash-medium` |
+| `agy:` | Antigravity CLI | `agy:gemini-4-argon-medium` |
 
-Settings lists the agents you have installed. How each one is run and what it sees: [the guide](docs/guide.md#how-it-works-and-what-leaves-your-computer).
+## Quick start (PowerShell)
 
-## Quick start
-
-```sh
-git clone https://github.com/AbdullahAlhariri/penmentor ~/src/penmentor
-~/src/penmentor/bin/penmentor --selftest
+```powershell
+git clone https://github.com/nairsh/penmentor-onenote $HOME\penmentor-onenote
+cd $HOME\penmentor-onenote
+pip install .
+penmentor --selftest
 ```
 
-Linux on X11 (best with i3), with one of those agents logged in (`claude`, `codex` or `agy`), plus `rofi`, `slop`,
-`xdotool` and PyQt6. Bind `bin/penmentor` to a key ([example](contrib/i3.conf)). Setup, keys and how it works: [the guide](docs/guide.md).
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=abdullahalhariri%2Fpenmentor&type=date&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=abdullahalhariri/penmentor&type=date&theme=dark&logscale&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=abdullahalhariri/penmentor&type=date&logscale&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=abdullahalhariri/penmentor&type=date&logscale&legend=bottom-right" />
- </picture>
-</a>
+Then bind a key with [contrib/penmentor.ahk](contrib/penmentor.ahk). Setup, keys and how it works: [the guide](docs/guide.md).
 
 ## License
 

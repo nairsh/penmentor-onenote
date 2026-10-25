@@ -1038,7 +1038,7 @@ class Show(Scene):
 
 
 class QuietWindow(Window):
-    """manimgl's window, opened as a floating dialog that doesn't take the focus (your pen stays in xournal),
+    """manimgl's window, opened as a floating dialog that doesn't take the focus (your pen stays in OneNote),
     where penmentor put it (the overlay leaves that spot uncovered)."""
 
     def __init__(self, rect):
@@ -1046,7 +1046,7 @@ class QuietWindow(Window):
         self.scene, self.pressed_keys = None, set()
         self.default_size, self.default_position = (w, h), (x, y)
         # 4x multisampling: smooth edges, 3D too. aspect_ratio: resizing never squashes the picture, it stays 16:9 in the
-        # middle (the bars are black, like the background). Invisible at first, so the hints are set before i3 sees it.
+        # middle (the bars are black, like the background). Invisible at first, so it is placed before it shows.
         PygletWindow.__init__(self, samples=4, visible=False, aspect_ratio=16 / 9)
         self.exit_key = None  # moderngl_window closes on Esc by default, and so does pyglet underneath it: stop Esc here
         from pyglet.window import key  # (it only cancels typing a value), and pass typed text to the scene
@@ -1060,18 +1060,9 @@ class QuietWindow(Window):
                                    on_text_motion_select=lambda m: self.scene and self.scene.on_text_motion(m, True))
         win = self._window
         win.set_caption('penmentor · show me')
-        win._set_atoms_property('_NET_WM_WINDOW_TYPE', ('_NET_WM_WINDOW_TYPE_DIALOG',))  # i3 floats dialogs
-        from ctypes import POINTER, byref, c_ubyte, c_ulong, cast
-        from pyglet.libs.x11 import xlib
-        atom = lambda name: xlib.XInternAtom(win._x_display, name.encode(), False)
-        zero = c_ulong(0)  # user time 0: don't focus it
-        xlib.XChangeProperty(win._x_display, win._window, atom('_NET_WM_USER_TIME'), atom('CARDINAL'), 32,
-                             xlib.PropModeReplace, cast(byref(zero), POINTER(c_ubyte)), 1)
         self.to_default_position()
         win.set_visible(True)
-        # i3 opens floating windows on the focused screen: move it to the one we want (no-op elsewhere)
-        subprocess.run(['i3-msg', f'[id={win._window}] move absolute position {self.default_position[0]} {self.default_position[1]}'],
-                       capture_output=True)
+        win.set_location(*self.default_position)  # on the monitor penmentor chose
 
     def pixel_coords_to_space_coords(self, px, py, relative=False):
         """Window pixels to scene coordinates, through the 16:9 area (manimgl's own version assumes the whole window)."""

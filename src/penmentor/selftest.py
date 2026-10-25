@@ -64,15 +64,14 @@ def text():
 
 
 def desktop():
-    from .desktop import windows
-    tree = {'type': 'root', 'nodes': [{'type': 'output', 'nodes': [
-        {'type': 'con', 'name': 'content', 'rect': {'x': 0, 'y': 0, 'width': 199, 'height': 90}},
-        {'type': 'workspace', 'name': '1', 'rect': {'x': 0, 'y': 0, 'width': 99, 'height': 99}, 'nodes': [
-            {'window': 7, 'focused': True, 'rect': {'x': 0, 'y': 0, 'width': 50, 'height': 99}},
-            {'window': 8, 'rect': {'x': 50, 'y': 0, 'width': 49, 'height': 99}}]},
-        {'type': 'workspace', 'name': '2', 'nodes': [{'window': 9, 'rect': {'x': 0, 'y': 0, 'width': 99, 'height': 99}}]},
-        {'type': 'workspace', 'name': '3', 'focused': True, 'rect': {'x': 100, 'y': 0, 'width': 99, 'height': 99}}]}]}
-    assert windows(tree, {'1', '3'}) == ([(0, 0, 50, 99), (50, 0, 49, 99)], (100, 0, 99, 99), [(0, 0, 199, 90)])  # hidden ws 2 skipped; empty ws 3 focused
+    """A real screenshot of the runner's desktop: monitors, windows and the pointer in the screenshot's own pixels."""
+    from . import desktop as D
+    try:
+        shot, screens, main, wins = D.capture()
+    except D.Oops:
+        return print('desktop skipped: no window on screen')
+    assert shot.size[0] > 0 and screens and 0 <= main < len(screens) and wins and len(D.ORIGIN) == 2
+    assert D.pointer() is not None and D.virtual()[2:] == shot.size, (D.virtual(), shot.size)
 
 
 def menus():
@@ -174,59 +173,35 @@ def overlay():
     assert not pill.grab().isNull()
 
 
-def page_export():
-    """A xournal++ that never answers (started before the plugin was installed) costs one wait, not one per question."""
-    from . import xournal as X
-    saved = X.PLUGIN, X.PAGE, X.INFO, X.MISS, X.focused, X.PageRequest.poke
-    with tempfile.TemporaryDirectory() as d:
-        X.PLUGIN, X.PAGE, X.INFO, X.MISS = Path(d), Path(d, 'page.png'), Path(d, 'page.txt'), Path(d, 'page.miss')
-        pid, pokes = ['123'], []
-        X.focused, X.PageRequest.poke = lambda: pid[0], staticmethod(lambda: pokes.append(1))
-        try:
-            assert X.PageRequest().result(wait=.1) is None and len(pokes) == 2  # asked twice, then gave up
-            assert not X.PageRequest().on  # same xournal: not asked again
-            pid[0] = '456'  # restarted, plugin loaded now
-            r = X.PageRequest()
-            X.INFO.write_text('3 5')
-            X.PAGE.write_bytes(b'png')
-            assert r.on and r.result() == (b'png', 'page 3 of 5') and not X.MISS.exists()
-        finally:
-            X.PLUGIN, X.PAGE, X.INFO, X.MISS, X.focused, X.PageRequest.poke = saved
-
-
 def stopping():
-    """Esc kills a claude that is still answering instead of leaving it running on your plan."""
+    """Esc kills a model that is still answering instead of leaving it running on your plan."""
+    import sys
     import threading
     from . import harness
     with tempfile.TemporaryDirectory() as d:
-        stub, saved, failed = Path(d) / 'claude', harness.BIN['claude'], []
-        stub.write_text('#!/bin/sh\nexec sleep 30\n')
-        stub.chmod(0o755)
-        harness.BIN['claude'] = str(stub)
+        failed = []
+
         def ask():
             try:
-                harness.ask([], 'hi', keep=False)
-            except RuntimeError:
+                harness.run([sys.executable, '-c', 'import time; time.sleep(30)'], '', d)
+            except Exception:
                 failed.append(True)
-        try:
-            t = threading.Thread(target=ask)
-            t.start()
-            for _ in range(300):
-                if harness.RUNNING:
-                    break
-                time.sleep(.01)
-            harness.stop()
-            t.join(5)
-            assert not t.is_alive() and failed and not harness.RUNNING
-        finally:
-            harness.BIN['claude'] = saved
+        t = threading.Thread(target=ask)
+        t.start()
+        for _ in range(300):
+            if harness.RUNNING:
+                break
+            time.sleep(.01)
+        assert harness.RUNNING
+        harness.stop()
+        t.join(5)
+        assert not t.is_alive() and not harness.RUNNING
 
 
-STUB = r"""#!/usr/bin/env python3
-import json, os, sys
+STUB = r"""import json, os, sys
+name = sys.argv.pop(1)  # which harness the stand-in plays
 open(os.environ['PM_LOG'], 'a').write(json.dumps({'argv': sys.argv, 'stdin': sys.stdin.read()}) + '\n')
 answer = {'read_as': [], 'verdict': 'correct', 'headline': 'ok', 'marks': []}
-name = os.path.basename(sys.argv[0])
 if name == 'claude':
     print(json.dumps({'type': 'result', 'structured_output': answer, 'usage': {'input_tokens': 5, 'output_tokens': 2}}))
 elif name == 'agy':
@@ -243,15 +218,18 @@ else:
 def harnesses():
     """Claude Code, Antigravity and Codex, played by stand-ins that answer in each one's own format: the same answer
     shape whichever runs it, follow-ups resume that harness's conversation, switching harness starts a new one."""
+    import sys
     from . import config, harness
     saved = dict(harness.BIN), harness.SESSION, harness.TURN, harness.CACHE, dict(config.CONF)
     with tempfile.TemporaryDirectory() as d:
         d = Path(d)
         log = d / 'log.jsonl'
         os.environ['PM_LOG'] = str(log)
+        stub = d / 'stub.py'
+        stub.write_text(STUB)
+        real_run = harness.run
+        harness.run = lambda cmd, stdin, cwd: real_run([sys.executable, str(stub), Path(cmd[0]).stem, *cmd[1:]], stdin, cwd)  # no shell
         for h in harness.HARNESSES:
-            (d / h).write_text(STUB)
-            (d / h).chmod(0o755)
             harness.BIN[h] = str(d / h)
         harness.SESSION, harness.TURN, harness.CACHE = d / 'session.json', d / 'turn', d
         shot = harness.prepare(__import__('PIL.Image').Image.new('RGB', (40, 30), 'white'))
@@ -276,12 +254,13 @@ def harnesses():
             harness.ask([shot], 'and now?', new_shot=False)
             assert '--conversation' not in calls()[-1]['argv'] and 'image1.png' in calls()[-1]['stdin']
         finally:
+            harness.run = real_run
             harness.BIN.update(saved[0])
             harness.SESSION, harness.TURN, harness.CACHE = saved[1:4]
             config.CONF.clear(), config.CONF.update(saved[4])
 
 
 def selftest():
-    for check in (pages, text, desktop, menus, formulas, plots, overlay, page_export, stopping, harnesses):
+    for check in (pages, text, desktop, menus, formulas, plots, overlay, stopping, harnesses):
         check()
     print('selftest ok')

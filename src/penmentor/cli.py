@@ -13,16 +13,15 @@ Esc stops penmentor at any point, the model included.
 Hover or tap a mark for its one-line "why".
 """
 import faulthandler
-import fcntl
 import json
+import msvcrt
 import os
-import signal
 import sys
 import time
 import traceback
 from pathlib import Path
 
-from . import harness, show, xournal
+from . import desktop, harness, show, xournal
 from .config import CACHE, CHOICES, CONF, SESSION, STATE, save, set_state
 from .desktop import Oops, capture, notify, on_escape, rofi, select_region
 from .prompts import BOX_QS, PRESETS, TASKS
@@ -77,19 +76,18 @@ def past_animations(reopen):
 
 
 def nudge_running(what='menu'):
-    """Another penmentor holds the lock. If its marks are up, this key press opens their menu ('menu'), or a pad
-    button asks its question about the work on screen (a preset mode)."""
+    """Another penmentor holds the lock. If its marks are up, this key press opens their menu ('menu'), or a pen
+    button asks its question about the work on screen (a preset mode): the overlay watches the poke file."""
     try:
-        state = STATE.read_text().split()
-        if state[0] == 'open' and b'penmentor' in Path(f'/proc/{int(state[1])}/cmdline').read_bytes():
-            (CACHE / 'poke').write_text(what)
-            return os.kill(int(state[1]), signal.SIGUSR1)
-    except (OSError, ValueError, IndexError):
+        if STATE.read_text().split()[0] == 'open':
+            return (CACHE / 'poke').write_text(what)
+    except (OSError, IndexError):
         pass
     notify('Still answering the last question…', ms=2500)
 
 
 def app_and_overlay():
+    os.environ.setdefault('QT_ENABLE_HIGHDPI_SCALING', '0')  # Qt's units are the screenshot's pixels
     from PyQt6.QtCore import QThread
     from PyQt6.QtWidgets import QApplication
     from .overlay import Overlay
@@ -100,7 +98,7 @@ def app_and_overlay():
 
 def watchdog(app):
     """Last resort: if the Qt loop ever stalls for 20 s (while the overlay may hold your keyboard and mouse),
-    write where it hung to ~/.cache/penmentor/freeze.log and exit, so X gives them back."""
+    write where it hung to freeze.log in the cache folder and exit, so Windows gives them back."""
     from PyQt6.QtCore import QTimer
     log = open(CACHE / 'freeze.log', 'w')
     arm = lambda: faulthandler.dump_traceback_later(20, exit=True, file=log)
@@ -152,16 +150,16 @@ def main(a):
     CACHE.mkdir(parents=True, exist_ok=True)
     lock = open(CACHE / 'lock', 'w')
     try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
+        msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
         return nudge_running(a[1] if a[:1] == ['--ask'] and a[1:2] else 'menu')
     set_state('busy')
     if a[:1] == ['--last']:
         return show_last()
     shot, screens, main_screen, wins = capture()  # before rofi draws over the screen
-    page = xournal.PageRequest()  # now, while the keyboard still goes to xournal
+    page = xournal.PageRequest()
     on_escape(lambda: (harness.stop(), os._exit(0)))  # Esc anywhere stops penmentor, even while the model thinks
-    geom = (0, 0, *shot.size)
+    geom = (*desktop.ORIGIN, *shot.size)  # where the screenshot sits on the desktop
     on = CONF['context'] == 'on'
     if a[:1] == ['--ask']:  # a tablet button: straight to the question
         choice = next((label for label, m in PRESETS if a[1:2] == [m]), None)
@@ -212,5 +210,5 @@ def run():
     except Exception as ex:
         CACHE.mkdir(parents=True, exist_ok=True)
         (CACHE / 'error.log').write_text(traceback.format_exc())
-        notify(f'{type(ex).__name__}: {str(ex)[:200]}\nDetails: ~/.cache/penmentor/error.log', critical=True, title='penmentor crashed')
+        notify(f'{type(ex).__name__}: {str(ex)[:200]}\nDetails: {CACHE / "error.log"}', critical=True, title='penmentor crashed')
         raise

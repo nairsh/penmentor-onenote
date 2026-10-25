@@ -1,13 +1,14 @@
-"""Where penmentor keeps things, and your settings (model, effort, context), saved in ~/.config/penmentor/settings.json."""
+"""Where penmentor keeps things, and your settings (model, effort, context), saved in %LOCALAPPDATA%\\penmentor\\settings.json."""
 import json
 import os
 from pathlib import Path
 
-CACHE = Path(os.environ.get('XDG_CACHE_HOME') or Path.home() / '.cache') / 'penmentor'
-SETTINGS = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config') / 'penmentor' / 'settings.json'
+HOME = Path(os.environ.get('LOCALAPPDATA') or Path.home() / 'AppData' / 'Local') / 'penmentor'  # everything lives here
+CACHE = HOME / 'cache'
+SETTINGS = HOME / 'settings.json'
 SESSION = CACHE / 'session.json'  # the conversation every question builds on (and its harness), until Clear context
-DATA = Path(os.environ.get('XDG_DATA_HOME') or Path.home() / '.local/share') / 'penmentor'  # kept: Show-me history, manim
-MANIM = DATA / 'manim' / 'bin' / 'python'  # a venv with manimgl (README), for Show me
+DATA = HOME / 'data'  # kept: Show-me history, manim
+MANIM = DATA / 'manim' / 'Scripts' / 'python.exe'  # a venv with manimgl (README), for Show me
 STATE = CACHE / 'state'  # 'busy', or 'waiting <pid>' while penmentor waits for you to write; read by a second penmentor
 
 CHOICES = {  # models as harness:model (which command-line agent runs it; see harness.py), effort levels, shared context
