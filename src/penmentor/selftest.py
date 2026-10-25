@@ -262,5 +262,6 @@ def harnesses():
 
 def selftest():
     for check in (pages, text, desktop, menus, formulas, plots, overlay, stopping, harnesses):
+        print(check.__name__, flush=True)
         check()
     print('selftest ok')
