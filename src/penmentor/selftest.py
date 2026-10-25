@@ -246,7 +246,7 @@ def harnesses():
                 harness.ask([shot], 'and now?', new_shot=False)  # a follow-up: the same conversation
                 assert resumes in calls()[-1]['argv'], (h, calls()[-1]['argv'])
                 if h == 'agy':  # its print mode takes text only: the screenshot is a file it is told to open
-                    assert str(d / 'turn' / 'image1.png') in first['stdin'] and '--sandbox' in first['argv']
+                    assert json.dumps(str(d / 'turn' / 'image1.png'))[1:-1] in first['stdin'] and '--sandbox' in first['argv']
                 if h == 'codex':  # attached by Codex; its schema strict (every key required)
                     assert f"--image={d / 'turn' / 'image1.png'}" in first['argv']
                     assert set(strict['required']) == set(strict['properties']) and '--sandbox' in first['argv']
