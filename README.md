@@ -4,8 +4,8 @@
 A maths mentor at the tip of your pen. Press a key while you work by hand: Claude, Gemini or GPT marks your work on the screen like a teacher with coloured pens, gives you hints instead of answers, and shows the idea as a 3Blue1Brown-style animation.
 </p>
 
-<p align="center"><img src="docs/demo.gif" alt="Writing an integral in xournal++, penmentor marking the sign slip, then animating the area" width="860"><br>
-<sub>Handwriting in xournal++ → one key → the slip is marked on the page → box the integral → an interactive manim animation.
+<p align="center"><img src="docs/demo.gif" alt="Original demo: writing an integral in xournal++ on Linux, penmentor marking the sign slip, then animating the area" width="860"><br>
+<sub>Demo from the Linux/xournal++ original (this fork does the same over OneNote on Windows): handwriting → one key → the slip is marked on the page → box the integral → an interactive manim animation.
 (<a href="docs/demo.mp4">video</a>; for a repeatable recording the pen is scripted and the model's answer is a fixed example.)</sub></p>
 
 ## About this fork
