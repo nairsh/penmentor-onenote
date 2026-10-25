@@ -261,6 +261,8 @@ def harnesses():
 
 
 def selftest():
+    import faulthandler
+    faulthandler.dump_traceback_later(240, exit=True)  # a hung check shows where, instead of waiting forever
     for check in (pages, text, desktop, menus, formulas, plots, overlay, stopping, harnesses):
         print(check.__name__, flush=True)
         check()
