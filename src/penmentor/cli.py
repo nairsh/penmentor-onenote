@@ -208,6 +208,8 @@ def run():
     except Oops as ex:
         notify(str(ex))
     except Exception as ex:
+        if sys.argv[1:2] in (['--selftest'], ['--test'], ['--render']):
+            raise  # a terminal is watching: the traceback, not a message box
         CACHE.mkdir(parents=True, exist_ok=True)
         (CACHE / 'error.log').write_text(traceback.format_exc())
         notify(f'{type(ex).__name__}: {str(ex)[:200]}\nDetails: {CACHE / "error.log"}', critical=True, title='penmentor crashed')
